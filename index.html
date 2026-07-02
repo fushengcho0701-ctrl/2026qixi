@@ -6,6 +6,7 @@
     <title>福盛園藝 - 2026 七夕進口玫瑰預購</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
         body { font-family: 'Noto Sans TC', sans-serif; }
         .product-img { aspect-ratio: 1 / 1.1; object-fit: contain; transition: opacity 0.3s ease; }
         .qty-input::-webkit-inner-spin-button { opacity: 1; }
@@ -41,7 +42,7 @@
                             <li>玫瑰照片提供兩種參考，使用下方切換按鈕，可查看實拍與農場照</li>
                             <li>原封原裝進口玫瑰20枝，NG 花材數量約佔 1–2 支屬正常損耗範圍。</li>
                             <li>預購價：原色NT$/把，染色 NT$/把，預購價皆不含運費，運費需另外計算。</li>
-                            <li>預購截止日為<span class="text-rose-500 font-bold">2026/4/22</span>，活動截止後將恢復原價，不提供其他優惠。</li>
+                            <li>預購截止日為<span class="text-rose-500 font-bold">2026/7/12</span>，活動截止後將恢復原價，不提供其他優惠。</li>
                             <li>務必詳讀預購須知，若有運費不知或其他問題可以私訊官方LINE，謝謝。</li>
                         </ul>
                     </div>
@@ -71,7 +72,7 @@
                         <div><label class="block text-[11px] font-bold text-gray-400 mb-1">電話</label><input type="tel" name="customerPhone" class="w-full border-gray-200 border p-2 rounded-lg outline-none focus:border-rose-400" required></div>
                         <div><label class="block text-[11px] font-bold text-gray-400 mb-1">電子郵件</label><input type="email" name="customerEmail" class="w-full border-gray-200 border p-2 rounded-lg outline-none focus:border-rose-400" required></div>
                         <div><label class="block text-[11px] font-bold text-gray-400 mb-1">詳細聯絡資訊 (ID/帳號)</label><input type="text" name="contactDetail" class="w-full border-gray-200 border p-2 rounded-lg outline-none focus:border-rose-400" required></div>
-                        <div class="md:col-span-2"><label class="block text-[11px] font-bold text-rose-500 mb-1">預計取貨日 (8/xx起抵台)</label><input type="date" name="pickupDate" class="w-full border-gray-200 border p-2 rounded-lg outline-none focus:border-rose-400" required></div>
+                        <div class="md:col-span-2"><label class="block text-[11px] font-bold text-rose-500 mb-1">預計取貨日 (8/xx起抵台)</label><input type="date" name="pickupDate" id="pickupDate" class="w-full border-gray-200 border p-2 rounded-lg outline-none focus:border-rose-400" required></div>
                     </div>
                 </section>
 
@@ -143,7 +144,10 @@
 
     <script>
         const scriptURL = 'https://script.google.com/macros/s/AKfycbwUgNjyzOGBLm0su88lTFVrGruMTEeW3xGD8kFfcOgmcwrrsGCme4b7ZXME4BgQpXNhng/exec';
-        const DEADLINE = new Date('2026-04-22T23:59:59+08:00');
+        
+        // 修正：截止日期更新為 2026/07/12 晚上 11:59:59
+        const DEADLINE = new Date('2026-07-12T23:59:59+08:00');
+        
         const backhaulData = {
             "桃園佳欣花店": 0, "竹北濱江林花店": 150, "苗栗交流道": 150, "台中芳林花卉": 150,
             "台中江合花市": 200, "豐原交流道": 150, "彰化田尾花市": 150, "草屯交流道": 200,
@@ -153,6 +157,8 @@
         };
 
         let productData = [];
+        let currentSubtotal = 0;
+        let currentShipFee = 0;
 
         function checkDeadline() {
             if (new Date() > DEADLINE) {
@@ -164,6 +170,10 @@
         }
 
         if (!checkDeadline()) {
+            // UX優化：設定預計取貨日最小日期為今天，防止跨時空點選
+            const todayStr = new Date().toISOString().split('T')[0];
+            document.getElementById('pickupDate').min = todayStr;
+
             const bhSelect = document.getElementById('backhaulLocation');
             Object.keys(backhaulData).forEach(loc => {
                 const opt = document.createElement('option');
@@ -215,22 +225,30 @@
         }
 
         function calculateTotal() {
-            let subtotal = 0, summaryHtml = '';
+            currentSubtotal = 0; 
+            let summaryHtml = '';
             document.querySelectorAll('.qty-input').forEach(input => {
-                const qty = parseInt(input.value) || 0;
+                // 防呆：防止手機端誤打出負數
+                const qty = Math.max(0, parseInt(input.value) || 0);
                 if (qty > 0) {
                     const p = productData[input.dataset.index];
-                    subtotal += qty * p.price;
+                    currentSubtotal += qty * p.price;
                     summaryHtml += `<div class="flex justify-between"><span>${p.name} x ${qty}</span><span>$${qty * p.price}</span></div>`;
                 }
             });
+            
             const shipMethod = document.querySelector('input[name="shippingMethod"]:checked').value;
-            let shipFee = (shipMethod === '回頭車') ? parseInt(document.getElementById('backhaulLocation').selectedOptions[0].dataset.fee) || 0 : 0;
+            const bhSelect = document.getElementById('backhaulLocation');
+            
+            // 修正：增加安全性檢查，若尚未選擇或切換到非回頭車時不拋出未定義 Bug
+            currentShipFee = (shipMethod === '回頭車' && bhSelect.selectedOptions.length > 0) ? parseInt(bhSelect.selectedOptions[0].dataset.fee) || 0 : 0;
+            
             document.getElementById('backhaulOptions').className = (shipMethod === '回頭車') ? 'mt-4 pt-4 border-t border-gray-100' : 'hidden';
-            document.getElementById('finalTotal').textContent = `$${subtotal + shipFee}`;
+            document.getElementById('finalTotal').textContent = `$${currentSubtotal + currentShipFee}`;
+            
             const container = document.getElementById('summaryContainer');
             if (summaryHtml) {
-                container.innerHTML = summaryHtml + `<div class="border-t mt-1 pt-1 text-rose-500 font-bold">配送: ${shipMethod} (+$${shipFee})</div>`;
+                container.innerHTML = summaryHtml + `<div class="border-t mt-1 pt-1 text-rose-500 font-bold">配送: ${shipMethod} (+$${currentShipFee})</div>`;
                 container.classList.remove('hidden');
             } else { container.classList.add('hidden'); }
         }
@@ -239,15 +257,16 @@
             e.preventDefault();
             const items = [];
             document.querySelectorAll('.qty-input').forEach(input => {
-                const qty = parseInt(input.value) || 0;
+                const qty = Math.max(0, parseInt(input.value) || 0);
                 if (qty > 0) { const p = productData[input.dataset.index]; items.push({ name: p.name, price: p.price, quantity: qty }); }
             });
+            
             if (items.length === 0) return alert('請先填寫訂購數量！');
+            
             const btn = document.getElementById('submitBtn'); btn.disabled = true; btn.textContent = '傳送中...';
             
             const shipMethod = document.querySelector('input[name="shippingMethod"]:checked').value;
             const finalLoc = (shipMethod === '回頭車') ? document.getElementById('backhaulLocation').value : '無';
-            const finalFee = (shipMethod === '回頭車') ? parseInt(document.getElementById('backhaulLocation').selectedOptions[0].dataset.fee) : 0;
 
             const payload = {
                 customer: { 
@@ -261,9 +280,9 @@
                 shipping: { 
                     method: shipMethod, 
                     location: finalLoc, 
-                    fee: finalFee 
+                    fee: currentShipFee 
                 },
-                totalWithShipping: parseInt(document.getElementById('finalTotal').textContent.replace('$', ''))
+                totalWithShipping: currentSubtotal + currentShipFee
             };
 
             fetch(scriptURL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) }).then(() => {
@@ -272,11 +291,15 @@
                 document.getElementById('resDate').textContent = payload.customer.pickupDate;
                 document.getElementById('resShip').textContent = payload.shipping.method + (payload.shipping.method === '回頭車' ? ' - ' + payload.shipping.location : '');
                 document.getElementById('orderTimestamp').textContent = '傳送時間: ' + new Date().toLocaleString();
-                document.getElementById('resTotal').textContent = document.getElementById('finalTotal').textContent;
+                document.getElementById('resTotal').textContent = `$${payload.totalWithShipping}`;
+                
                 let itemsHtml = '';
                 payload.items.forEach(item => { itemsHtml += `<tr class="border-b border-gray-50"><td class="py-3 font-bold text-gray-700 text-left">${item.name}</td><td class="py-3 text-center text-gray-400">x ${item.quantity}</td><td class="py-3 text-right font-black text-rose-600">$${item.price * item.quantity}</td></tr>`; });
                 document.getElementById('resItemsList').innerHTML = itemsHtml;
                 document.getElementById('successPage').classList.remove('hidden'); window.scrollTo(0,0);
+            }).catch(err => {
+                alert('連線失敗，請檢查網路或稍後再試！');
+                btn.disabled = false; btn.textContent = '確認送出';
             });
         });
     </script>
